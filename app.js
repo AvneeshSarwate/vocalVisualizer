@@ -30,6 +30,10 @@ function init() {
 
   let yinDetector = getYinDetector({threshold: .5, probabilityThreshold: .5, sampleRate: audioCtx.sampleRate});
   let macleodDetector = getMacLeodDetector({bufferSize: fftSize, sampleRate: audioCtx.sampleRate});
+  let lastFreq = 0;
+  var arrayOf = n => Array.from(new Array(n), () => 0);
+  let pitchAvg = arrayOf(10);
+  let pitchInd = 0;
 
 
   // set up canvas context for visualizer
@@ -47,8 +51,8 @@ function init() {
         .then(
           function(stream) {
              source = audioCtx.createMediaStreamSource(stream);
-             toneGen.connect(analyser);
-             // source.connect(analyser);
+             // toneGen.connect(analyser);
+             source.connect(analyser);
              // analyser.connect(audioCtx.destination);
              toneGen.start();
              visualize();
@@ -78,12 +82,22 @@ function init() {
       let mPitch = macleodDetector(waveformArray);
       let yPitch = yinDetector(waveformArray);
       if(printPitch){
-        console.log("pitch", mPitch, yPitch);
+        console.log("pitch", mPitch.freq, mPitch.probability);
       }
-      
 
       canvasCtx.fillStyle = 'rgb(0, 0, 0)';
       canvasCtx.fillRect(0, 0, WIDTH, HEIGHT);
+
+
+      if(mPitch.probability > 0.5) {
+        let lastFreq = mPitch.freq;
+        pitchAvg[pitchInd++ % pitchAvg.length] = lastFreq;
+      }
+      let avg = pitchAvg.reduce((a, b) => a+b) / pitchAvg.length;
+      let freqY = Math.log2(avg) / Math.log2(22050) * HEIGHT;
+      canvasCtx.fillStyle = 'rgb(50, 200, 50)';
+      let voxBarWeight = 3;
+      canvasCtx.fillRect(0, freqY-voxBarWeight, WIDTH, voxBarWeight*2);
 
       let barWidth = (WIDTH / bufferLengthAlt) * 2.5;
       let barHeight;
